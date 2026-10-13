@@ -65,8 +65,8 @@ export default function App() {
   function removerUmaUnidade(produtoId) {
     // Remove só a primeira unidade encontrada do produto
     let removido = false
-    setCarrinho(
-      carrinho.filter((produto) => {
+    setCarrinho((itensAtuales) =>
+      itensAtuales.filter((produto) => {
         if (!removido && produto.id === produtoId) {
           removido = true
           return false

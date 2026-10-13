@@ -6,6 +6,7 @@ export default function PaginaProduto({ produtos, onAdicionar, onRegistrarIntere
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [mensagemInteresse, setMensagemInteresse] = useState('')
+  const [adicionado, setAdicionado] = useState(false)
 
   const produto = produtos.find((item) => item.id === id)
 
@@ -42,6 +43,12 @@ export default function PaginaProduto({ produtos, onAdicionar, onRegistrarIntere
     setNome('')
     setEmail('')
     setMensagemInteresse('Você foi adicionado à lista de espera. Avisaremos assim que o produto voltar.')
+  }
+
+  function handleAdicionarAoCarrinho() {
+    onAdicionar(produto)
+    setAdicionado(true)
+    window.setTimeout(() => setAdicionado(false), 450)
   }
 
   return (
@@ -101,11 +108,11 @@ export default function PaginaProduto({ produtos, onAdicionar, onRegistrarIntere
             <>
               <p className="detalhe-estoque">{produto.estoque} unidades disponíveis</p>
               <button
-                className="botao botao-grande"
-                onClick={() => onAdicionar(produto)}
+                className={adicionado ? 'botao botao-grande botao-adicionado' : 'botao botao-grande'}
+                onClick={handleAdicionarAoCarrinho}
                 disabled={produto.estoque === 0}
               >
-                Adicionar ao carrinho
+                {adicionado ? 'Adicionado!' : 'Adicionar ao carrinho'}
               </button>
             </>
           )}
