@@ -9,6 +9,7 @@ import Carrinho from './pages/Carrinho'
 import Estoque from './pages/Estoque'
 import { buscarProdutos } from './services/produtos'
 import { buscarClientes } from './services/clientes'
+import { normalizarPreco, produtoDisponivelParaVenda } from './utils/carrinho'
 
 export default function App() {
   const [produtos, setProdutos] = useState([])
@@ -20,7 +21,17 @@ export default function App() {
 
   useEffect(() => {
     buscarProdutos()
-      .then((dados) => setProdutos(dados))
+      .then((dados) => {
+        const produtosNormalizados = dados
+          .map((produto) => ({
+            ...produto,
+            price: normalizarPreco(produto.price),
+            precoOriginal: normalizarPreco(produto.precoOriginal),
+          }))
+          .filter((produto) => normalizarPreco(produto.price) !== null)
+
+        setProdutos(produtosNormalizados)
+      })
       .catch(() => setErro('Não foi possível carregar os produtos.'))
       .finally(() => setCarregando(false))
 
@@ -31,7 +42,8 @@ export default function App() {
   }, [])
 
   function adicionarAoCarrinho(produto) {
-    setCarrinho(carrinho.concat(produto))
+    if (!produtoDisponivelParaVenda(produto)) return
+    setCarrinho((itens) => itens.concat(produto))
   }
 
   function removerUmaUnidade(produtoId) {
