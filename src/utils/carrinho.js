@@ -29,6 +29,12 @@ export function produtoDisponivelParaVenda(produto) {
   return normalizarPreco(produto.price) !== null && produto.estoque > 0
 }
 
+export function valorRestanteParaFreteGratis(valor) {
+  const preco = normalizarPreco(valor)
+  if (preco === null) return 200
+  return Math.max(0, 200 - preco)
+}
+
 export function calcularTotal(carrinho) {
   return carrinho.reduce((total, produto) => {
     const preco = normalizarPreco(produto.price)
