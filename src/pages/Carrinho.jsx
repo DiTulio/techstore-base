@@ -62,7 +62,7 @@ export default function Carrinho({ carrinho, produtos, clienteAtual, onAdicionar
                 <p className="item-preco">R$ {item.produto.price}</p>
               </div>
               <span className="item-quantidade">{item.quantidade} un.</span>
-              <button className="botao-texto" onClick={() => onRemover(item.produto.id)}>
+              <button type="button" className="botao-texto" onClick={() => onRemover(item.produto.id)}>
                 Remover 1
               </button>
             </li>
