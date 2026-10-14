@@ -1,52 +1,26 @@
 // O carrinho guarda uma entrada por unidade adicionada.
 // Ex.: duas camisetas iguais = o mesmo produto duas vezes no array
 
-export function normalizarPreco(valor) {
-  if (valor === null || valor === undefined || valor === '') {
-    return null
-  }
-
-  const texto = String(valor).trim().replace(/\s+/g, '')
-
-  if (!texto || texto === 'null' || texto === 'undefined') {
-    return null
-  }
-
-  let valorNumerico = texto
-
-  if (texto.includes(',') && texto.includes('.')) {
-    valorNumerico = texto.replace(/\./g, '').replace(',', '.')
-  } else if (texto.includes(',')) {
-    valorNumerico = texto.replace(',', '.')
-  }
-
-  const numero = Number(valorNumerico)
-  return Number.isFinite(numero) ? numero : null
-}
-
-export function produtoDisponivelParaVenda(produto) {
-  if (!produto) return false
-  return normalizarPreco(produto.price) !== null && produto.estoque > 0
-}
-
-export function valorRestanteParaFreteGratis(valor) {
-  const preco = normalizarPreco(valor)
-  if (preco === null) return 200
-  return Math.max(0, 200 - preco)
+// Arredonda para centavos, evitando erros como 0.1 + 0.2 = 0.30000000000000004
+export function arredondar(valor) {
+  return Math.round(valor * 100) / 100
 }
 
 export function calcularTotal(carrinho) {
-  return carrinho.reduce((total, produto) => {
-    const preco = normalizarPreco(produto.price)
-    return total + (preco ?? 0)
-  }, 0)
+  return arredondar(carrinho.reduce((total, produto) => total + produto.price, 0))
+}
+
+export function aplicarDesconto(total, desconto) {
+  return arredondar(total * (1 - desconto))
+}
+
+export function contarNoCarrinho(carrinho, produtoId) {
+  return carrinho.filter((produto) => produto.id === produtoId).length
 }
 
 export function agruparItens(carrinho) {
   const itens = []
   carrinho.forEach((produto) => {
-    if (!produtoDisponivelParaVenda(produto)) return
-
     const existente = itens.find((item) => item.produto.id === produto.id)
     if (existente) {
       existente.quantidade += 1

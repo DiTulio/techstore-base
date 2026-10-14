@@ -1001,3 +1001,54 @@ h2 {
     justify-self: start;
   }
 }
+.botao-adicionado:disabled {
+  opacity: 1;
+}
+
+.mensagem-aviso-erro {
+  color: var(--cor-erro);
+}
+
+/* Frete grátis no resumo do carrinho */
+
+.frete {
+  display: grid;
+  gap: var(--espaco-2);
+}
+
+.frete-texto {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.frete-gratis {
+  color: var(--cor-frete);
+}
+
+.frete-barra {
+  height: 8px;
+  background: var(--cor-moldura);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.frete-progresso {
+  height: 100%;
+  background: var(--cor-frete);
+  transition: width 0.3s;
+}
+
+.frete-regra {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--cor-texto-suave);
+}
+
+a.item-titulo {
+  display: block;
+}
+
+a.item-titulo:hover {
+  text-decoration: underline;
+}

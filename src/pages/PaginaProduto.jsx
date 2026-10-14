@@ -1,13 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import BotaoAdicionar from '../components/BotaoAdicionar'
 import ProdutoCard from '../components/ProdutoCard'
+import { contarNoCarrinho } from '../utils/carrinho'
+import { formatarPreco } from '../utils/formatarPreco'
+import { estaEsgotado, temPreco } from '../utils/produtos'
 
-export default function PaginaProduto({ produtos, onAdicionar, onRegistrarInteresse }) {
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// "produtos" traz TODOS os produtos: o link de um esgotado precisa continuar abrindo
+export default function PaginaProduto({ produtos, carrinho, onAdicionar, onRegistrarInteresse }) {
   const { id } = useParams()
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
-  const [mensagemInteresse, setMensagemInteresse] = useState('')
-  const [adicionado, setAdicionado] = useState(false)
+  const [mensagemInteresse, setMensagemInteresse] = useState(null)
+
+  // Ao trocar de produto, limpa o formulário e a mensagem do produto anterior
+  useEffect(() => {
+    setNome('')
+    setEmail('')
+    setMensagemInteresse(null)
+  }, [id])
 
   const produto = produtos.find((item) => item.id === id)
 
@@ -22,34 +35,48 @@ export default function PaginaProduto({ produtos, onAdicionar, onRegistrarIntere
     )
   }
 
+  const esgotado = estaEsgotado(produto)
+
+  // Esgotados não aparecem como relacionados
   const relacionados = produtos
-    .filter((item) => item.category === produto.category && item.id !== produto.id && item.estoque > 0)
+    .filter(
+      (item) => item.category === produto.category && item.id !== produto.id && !estaEsgotado(item)
+    )
     .slice(0, 4)
 
   function handleRegistrarInteresse(evento) {
     evento.preventDefault()
 
-    if (!nome.trim() || !email.trim()) {
-      setMensagemInteresse('Informe seu nome e e-mail para receber a notificação.')
+    if (!nome.trim()) {
+      setMensagemInteresse({ erro: true, texto: 'Informe seu nome.' })
+      return
+    }
+    if (!EMAIL_VALIDO.test(email.trim())) {
+      setMensagemInteresse({ erro: true, texto: 'Informe um e-mail válido.' })
       return
     }
 
-    onRegistrarInteresse({
+    const status = onRegistrarInteresse({
       produtoId: produto.id,
       produtoTitle: produto.title,
-      nome: nome.trim(),
-      email: email.trim(),
+      nome,
+      email,
     })
+
+    if (status === 'duplicado') {
+      setMensagemInteresse({
+        erro: false,
+        texto: 'Este e-mail já está na lista de espera deste produto.',
+      })
+      return
+    }
 
     setNome('')
     setEmail('')
-    setMensagemInteresse('Você foi adicionado à lista de espera. Avisaremos assim que o produto voltar.')
-  }
-
-  function handleAdicionarAoCarrinho() {
-    onAdicionar(produto)
-    setAdicionado(true)
-    window.setTimeout(() => setAdicionado(false), 450)
+    setMensagemInteresse({
+      erro: false,
+      texto: 'Você foi adicionado à lista de espera. Avisaremos assim que o produto voltar.',
+    })
   }
 
   return (
@@ -67,16 +94,20 @@ export default function PaginaProduto({ produtos, onAdicionar, onRegistrarIntere
 
         <div className="detalhe-info">
           <h1>{produto.title}</h1>
-          <p className="card-avaliacao">
-            ★ {produto.rating.rate} <span>({produto.rating.count} avaliações)</span>
+          {produto.rating && (
+            <p className="card-avaliacao">
+              ★ {produto.rating.rate} <span>({produto.rating.count} avaliações)</span>
+            </p>
+          )}
+          <p className="detalhe-preco">
+            {temPreco(produto) ? formatarPreco(produto.price) : 'Preço em breve'}
           </p>
-          <p className="detalhe-preco">R$ {produto.price.toFixed(2).replace('.', ',')}</p>
           <p className="detalhe-descricao">{produto.description}</p>
 
-          {produto.estoque === 0 ? (
+          {esgotado ? (
             <>
               <p className="detalhe-estoque detalhe-estoque-esgotado">Produto esgotado</p>
-              <form className="form-aviso" onSubmit={handleRegistrarInteresse}>
+              <form className="form-aviso" onSubmit={handleRegistrarInteresse} noValidate>
                 <label className="rotulo" htmlFor="nome-alerta">
                   Nome
                 </label>
@@ -102,19 +133,26 @@ export default function PaginaProduto({ produtos, onAdicionar, onRegistrarIntere
                   Avise-me quando chegar
                 </button>
 
-                {mensagemInteresse && <p className="mensagem-aviso">{mensagemInteresse}</p>}
+                {mensagemInteresse && (
+                  <p
+                    className={
+                      mensagemInteresse.erro ? 'mensagem-aviso mensagem-aviso-erro' : 'mensagem-aviso'
+                    }
+                  >
+                    {mensagemInteresse.texto}
+                  </p>
+                )}
               </form>
             </>
           ) : (
             <>
               <p className="detalhe-estoque">{produto.estoque} unidades disponíveis</p>
-              <button
-                className={adicionado ? 'botao botao-grande botao-adicionado' : 'botao botao-grande'}
-                onClick={handleAdicionarAoCarrinho}
-                disabled={produto.estoque === 0}
-              >
-                {adicionado ? 'Adicionado!' : 'Adicionar ao carrinho'}
-              </button>
+              <BotaoAdicionar
+                produto={produto}
+                quantidadeNoCarrinho={contarNoCarrinho(carrinho, produto.id)}
+                onAdicionar={onAdicionar}
+                className="botao botao-grande"
+              />
             </>
           )}
 
@@ -125,12 +163,21 @@ export default function PaginaProduto({ produtos, onAdicionar, onRegistrarIntere
         </div>
       </div>
 
-      <h2>Produtos relacionados</h2>
-      <div className="grade">
-        {relacionados.map((item) => (
-          <ProdutoCard key={item.id} produto={item} onAdicionar={onAdicionar} />
-        ))}
-      </div>
+      {relacionados.length > 0 && (
+        <>
+          <h2>Produtos relacionados</h2>
+          <div className="grade">
+            {relacionados.map((item) => (
+              <ProdutoCard
+                key={item.id}
+                produto={item}
+                quantidadeNoCarrinho={contarNoCarrinho(carrinho, item.id)}
+                onAdicionar={onAdicionar}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   )
 }

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import ProdutoCard from '../components/ProdutoCard'
+import { contarNoCarrinho } from '../utils/carrinho'
 
 const CATEGORIAS = [
   { id: 'todas', nome: 'Todas' },
@@ -9,19 +10,13 @@ const CATEGORIAS = [
   { id: 'casa', nome: 'Casa' },
 ]
 
-export default function Loja({ produtos, onAdicionar }) {
+// "produtos" já chega sem os esgotados (filtrado no App)
+export default function Loja({ produtos, carrinho, onAdicionar }) {
   const [categoria, setCategoria] = useState('todas')
-  const [produtosVisiveis, setProdutosVisiveis] = useState(produtos)
 
-  useEffect(() => {
-    const disponiveis = produtos.filter((produto) => produto.estoque > 0)
-
-    if (categoria === 'todas') {
-      setProdutosVisiveis(disponiveis)
-    } else {
-      setProdutosVisiveis(disponiveis.filter((produto) => produto.category === categoria))
-    }
-  }, [categoria, produtos])
+  // Calculado direto a cada render: não há estado intermediário que mostre a lista errada
+  const produtosVisiveis =
+    categoria === 'todas' ? produtos : produtos.filter((produto) => produto.category === categoria)
 
   return (
     <section>
@@ -45,7 +40,12 @@ export default function Loja({ produtos, onAdicionar }) {
 
       <div className="grade">
         {produtosVisiveis.map((produto) => (
-          <ProdutoCard key={produto.id} produto={produto} onAdicionar={onAdicionar} />
+          <ProdutoCard
+            key={produto.id}
+            produto={produto}
+            quantidadeNoCarrinho={contarNoCarrinho(carrinho, produto.id)}
+            onAdicionar={onAdicionar}
+          />
         ))}
       </div>
     </section>
