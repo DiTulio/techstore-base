@@ -36,17 +36,14 @@ export default function App() {
   }, [])
 
   function adicionarAoCarrinho(produto) {
-    // Produto sem preço ou esgotado não pode ser vendido
     if (!produtoDisponivelParaVenda(produto)) return
 
     setCarrinho((itens) => {
-      // Não deixa passar do estoque disponível
       if (contarNoCarrinho(itens, produto.id) >= produto.estoque) return itens
       return itens.concat(produto)
     })
   }
 
-  // Registra o pedido "avise-me". Retorna 'ok' ou 'duplicado'
   function registrarInteresse({ produtoId, produtoTitle, nome, email }) {
     if (jaEstaNaEspera(listaEspera, produtoId, email)) return 'duplicado'
 
@@ -73,7 +70,7 @@ export default function App() {
     })
   }
 
-  // Esgotados não aparecem na loja nem nas sugestões (a página do produto continua acessível por link)
+
   const produtosEmEstoque = produtos.filter((produto) => !estaEsgotado(produto))
 
   const clienteAtual = clientes.find((cliente) => cliente.id === clienteAtualId)
