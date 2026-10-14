@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import SugestaoItem from '../components/SugestaoItem'
-import { agruparItens, calcularTotal, valorRestanteParaFreteGratis } from '../utils/carrinho'
+import ProdutoCard from '../components/ProdutoCard'
+import { agruparItens, aplicarDesconto, calcularTotal, contarNoCarrinho } from '../utils/carrinho'
 import { validarCupom } from '../utils/cupons'
+import { calcularFrete, FRETE_GRATIS_MINIMO } from '../utils/frete'
 import { formatarPreco } from '../utils/formatarPreco'
+import { estaEsgotado, temPreco } from '../utils/produtos'
 
 export default function Carrinho({ carrinho, produtos, clienteAtual, onAdicionar, onRemover }) {
   const [codigoCupom, setCodigoCupom] = useState('')
@@ -12,12 +14,18 @@ export default function Carrinho({ carrinho, produtos, clienteAtual, onAdicionar
 
   const itens = agruparItens(carrinho)
   const total = calcularTotal(carrinho)
-  const totalComDesconto = cupomAplicado ? total * (1 - cupomAplicado.desconto) : total
-  const faltaParaFreteGratis = valorRestanteParaFreteGratis(totalComDesconto)
+  const totalComDesconto = cupomAplicado ? aplicarDesconto(total, cupomAplicado.desconto) : total
+  const frete = calcularFrete(totalComDesconto)
 
+  // Sugestões: só produtos disponíveis e com preço, que ainda não estão no carrinho
   const sugestoes = produtos
-    .filter((produto) => produto.estoque > 0 && !carrinho.find((item) => item.id === produto.id))
-    .slice(0, 3)
+    .filter(
+      (produto) =>
+        !estaEsgotado(produto) &&
+        temPreco(produto) &&
+        !carrinho.find((item) => item.id === produto.id)
+    )
+    .slice(0, 4)
 
   function aplicarCupom(evento) {
     evento.preventDefault()
@@ -54,12 +62,14 @@ export default function Carrinho({ carrinho, produtos, clienteAtual, onAdicionar
         <ul className="lista-carrinho">
           {itens.map((item) => (
             <li key={item.produto.id} className="item-carrinho">
-              <div className="item-imagem-moldura">
+              <Link to={`/produto/${item.produto.id}`} className="item-imagem-moldura">
                 <img src={item.produto.image} alt={item.produto.title} />
-              </div>
+              </Link>
               <div className="item-info">
-                <p className="item-titulo">{item.produto.title}</p>
-                <p className="item-preco">R$ {item.produto.price}</p>
+                <Link to={`/produto/${item.produto.id}`} className="item-titulo">
+                  {item.produto.title}
+                </Link>
+                <p className="item-preco">{formatarPreco(item.produto.price)}</p>
               </div>
               <span className="item-quantidade">{item.quantidade} un.</span>
               <button type="button" className="botao-texto" onClick={() => onRemover(item.produto.id)}>
@@ -94,17 +104,19 @@ export default function Carrinho({ carrinho, produtos, clienteAtual, onAdicionar
               <span>{cupomAplicado.desconto * 100}%</span>
             </p>
           )}
-          {totalComDesconto >= 200 ? (
-            <p className="resumo-linha">
-              <span>Frete</span>
-              <span>Grátis</span>
+          <div className="frete">
+            <p className={frete.gratis ? 'frete-texto frete-gratis' : 'frete-texto'}>
+              {frete.gratis
+                ? 'Você ganhou frete grátis!'
+                : `Faltam ${formatarPreco(frete.falta)} para ganhar frete grátis`}
             </p>
-          ) : (
-            <p className="resumo-linha resumo-frete">
-              <span>Frete</span>
-              <span>Falta {formatarPreco(faltaParaFreteGratis)}</span>
+            <div className="frete-barra">
+              <div className="frete-progresso" style={{ width: `${frete.progresso}%` }} />
+            </div>
+            <p className="frete-regra">
+              Frete grátis em compras acima de {formatarPreco(FRETE_GRATIS_MINIMO)} no valor final.
             </p>
-          )}
+          </div>
           <p className="total">
             <span>Total</span>
             <span>{formatarPreco(totalComDesconto)}</span>
@@ -112,12 +124,21 @@ export default function Carrinho({ carrinho, produtos, clienteAtual, onAdicionar
         </aside>
       </div>
 
-      <h2>Você também pode gostar</h2>
-      <div className="sugestoes">
-        {sugestoes.map((produto) => (
-          <SugestaoItem key={produto.id} produto={produto} onAdicionar={onAdicionar} />
-        ))}
-      </div>
+      {sugestoes.length > 0 && (
+        <>
+          <h2>Você também pode gostar</h2>
+          <div className="grade">
+            {sugestoes.map((produto) => (
+              <ProdutoCard
+                key={produto.id}
+                produto={produto}
+                quantidadeNoCarrinho={contarNoCarrinho(carrinho, produto.id)}
+                onAdicionar={onAdicionar}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   )
 }

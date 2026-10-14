@@ -9,7 +9,10 @@ import Carrinho from './pages/Carrinho'
 import Estoque from './pages/Estoque'
 import { buscarProdutos } from './services/produtos'
 import { buscarClientes } from './services/clientes'
-import { normalizarPreco, produtoDisponivelParaVenda } from './utils/carrinho'
+import { carregarListaEspera, salvarListaEspera } from './services/avisos'
+import { contarNoCarrinho } from './utils/carrinho'
+import { jaEstaNaEspera } from './utils/listaEspera'
+import { estaEsgotado, produtoDisponivelParaVenda } from './utils/produtos'
 
 export default function App() {
   const [produtos, setProdutos] = useState([])
@@ -18,21 +21,11 @@ export default function App() {
   const [carrinho, setCarrinho] = useState([])
   const [clientes, setClientes] = useState([])
   const [clienteAtualId, setClienteAtualId] = useState(null)
-  const [listaEspera, setListaEspera] = useState([])
+  const [listaEspera, setListaEspera] = useState(carregarListaEspera)
 
   useEffect(() => {
     buscarProdutos()
-      .then((dados) => {
-        const produtosNormalizados = dados
-          .map((produto) => ({
-            ...produto,
-            price: normalizarPreco(produto.price),
-            precoOriginal: normalizarPreco(produto.precoOriginal),
-          }))
-          .filter((produto) => normalizarPreco(produto.price) !== null)
-
-        setProdutos(produtosNormalizados)
-      })
+      .then((dados) => setProdutos(dados))
       .catch(() => setErro('Não foi possível carregar os produtos.'))
       .finally(() => setCarregando(false))
 
@@ -43,23 +36,29 @@ export default function App() {
   }, [])
 
   function adicionarAoCarrinho(produto) {
+    // Produto sem preço ou esgotado não pode ser vendido
     if (!produtoDisponivelParaVenda(produto)) return
-    setCarrinho((itens) => itens.concat(produto))
+
+    setCarrinho((itens) => {
+      // Não deixa passar do estoque disponível
+      if (contarNoCarrinho(itens, produto.id) >= produto.estoque) return itens
+      return itens.concat(produto)
+    })
   }
 
+  // Registra o pedido "avise-me". Retorna 'ok' ou 'duplicado'
   function registrarInteresse({ produtoId, produtoTitle, nome, email }) {
-    if (!produtoId || !nome || !email) return
+    if (jaEstaNaEspera(listaEspera, produtoId, email)) return 'duplicado'
 
-    setListaEspera((esperaAtual) => [
-      ...esperaAtual,
-      {
-        id: `${produtoId}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        produtoId,
-        produtoTitle,
-        nome,
-        email,
-      },
-    ])
+    const novaLista = listaEspera.concat({
+      produtoId,
+      produtoTitle,
+      nome: nome.trim(),
+      email: email.trim().toLowerCase(),
+    })
+    setListaEspera(novaLista)
+    salvarListaEspera(novaLista)
+    return 'ok'
   }
 
   function removerUmaUnidade(produtoId) {
@@ -70,9 +69,12 @@ export default function App() {
         return itensAtuais
       }
 
-      return itensAtuais.filter((produto, indice) => !(produto.id === produtoId && indice === indicePrimeiro))
+      return itensAtuais.filter((produto, indice) => indice !== indicePrimeiro)
     })
   }
+
+  // Esgotados não aparecem na loja nem nas sugestões (a página do produto continua acessível por link)
+  const produtosEmEstoque = produtos.filter((produto) => !estaEsgotado(produto))
 
   const clienteAtual = clientes.find((cliente) => cliente.id === clienteAtualId)
 
@@ -89,13 +91,20 @@ export default function App() {
           <Routes>
             <Route
               path="/"
-              element={<Loja produtos={produtos} onAdicionar={adicionarAoCarrinho} />}
+              element={
+                <Loja
+                  produtos={produtosEmEstoque}
+                  carrinho={carrinho}
+                  onAdicionar={adicionarAoCarrinho}
+                />
+              }
             />
             <Route
               path="/produto/:id"
               element={
                 <PaginaProduto
                   produtos={produtos}
+                  carrinho={carrinho}
                   onAdicionar={adicionarAoCarrinho}
                   onRegistrarInteresse={registrarInteresse}
                 />
@@ -106,14 +115,17 @@ export default function App() {
               element={
                 <Carrinho
                   carrinho={carrinho}
-                  produtos={produtos}
+                  produtos={produtosEmEstoque}
                   clienteAtual={clienteAtual}
                   onAdicionar={adicionarAoCarrinho}
                   onRemover={removerUmaUnidade}
                 />
               }
             />
-            <Route path="/estoque" element={<Estoque produtos={produtos} listaEspera={listaEspera} />} />
+            <Route
+              path="/estoque"
+              element={<Estoque produtos={produtos} listaEspera={listaEspera} />}
+            />
           </Routes>
         )}
       </main>

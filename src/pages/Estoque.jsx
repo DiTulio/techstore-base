@@ -1,16 +1,19 @@
+import { contarEspera, esperaDoProduto } from '../utils/listaEspera'
+import { estaEsgotado, temPreco } from '../utils/produtos'
+
 // Página usada pelo time de estoque para acompanhar a quantidade de cada produto
+// e quem está esperando os esgotados voltarem
 export default function Estoque({ produtos, listaEspera = [] }) {
+  // Esgotados primeiro, com os mais esperados no topo (prioridade de reposição);
+  // depois os demais por menor estoque.
   // slice cria uma cópia, para o sort não alterar a lista original
-  const ordenados = produtos.slice().sort((a, b) => a.estoque - b.estoque)
-
-  const filaPorProduto = listaEspera.reduce((acumulador, registro) => {
-    if (!acumulador[registro.produtoId]) {
-      acumulador[registro.produtoId] = []
-    }
-
-    acumulador[registro.produtoId].push({ nome: registro.nome, email: registro.email })
-    return acumulador
-  }, {})
+  const ordenados = produtos.slice().sort((a, b) => {
+    const esgotadoA = estaEsgotado(a)
+    const esgotadoB = estaEsgotado(b)
+    if (esgotadoA !== esgotadoB) return esgotadoA ? -1 : 1
+    if (esgotadoA) return contarEspera(listaEspera, b.id) - contarEspera(listaEspera, a.id)
+    return a.estoque - b.estoque
+  })
 
   return (
     <section>
@@ -25,19 +28,21 @@ export default function Estoque({ produtos, listaEspera = [] }) {
               <th>Produto</th>
               <th>Categoria</th>
               <th>Unidades</th>
+              <th>Aguardando</th>
               <th>Fila de espera</th>
               <th>Situação</th>
             </tr>
           </thead>
           <tbody>
             {ordenados.map((produto) => {
-              const esperas = filaPorProduto[produto.id] ?? []
+              const esperas = esperaDoProduto(listaEspera, produto.id)
 
               return (
                 <tr key={produto.id}>
                   <td>{produto.title}</td>
                   <td>{produto.category}</td>
                   <td>{produto.estoque}</td>
+                  <td>{esperas.length}</td>
                   <td>
                     {esperas.length === 0 ? (
                       <span className="texto-suave">Nenhum</span>
@@ -52,11 +57,12 @@ export default function Estoque({ produtos, listaEspera = [] }) {
                     )}
                   </td>
                   <td>
-                    {produto.estoque === 0 && <span className="selo selo-esgotado">Esgotado</span>}
+                    {estaEsgotado(produto) && <span className="selo selo-esgotado">Esgotado</span>}
                     {produto.estoque > 0 && produto.estoque < 5 && (
                       <span className="selo selo-alerta">Repor</span>
                     )}
                     {produto.estoque >= 5 && <span className="selo selo-ok">OK</span>}
+                    {!temPreco(produto) && <span className="selo selo-alerta">Sem preço</span>}
                   </td>
                 </tr>
               )
